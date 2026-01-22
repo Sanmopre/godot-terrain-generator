@@ -6,3 +6,7 @@ config.log
 .sconf_temp
 bin
 src/*.os
+.vscode
+demo/.godot
+demo/.editorconfig
+demo/gdexample.gdextension.uid
