@@ -1,0 +1,6 @@
+[submodule "submodules/godot-cpp"]
+	path = submodules/godot-cpp
+	url = https://github.com/godotengine/godot-cpp.git
+[submodule "submodules/FastNoiseLite"]
+	path = submodules/FastNoiseLite
+	url = https://github.com/Auburn/FastNoiseLite.git
