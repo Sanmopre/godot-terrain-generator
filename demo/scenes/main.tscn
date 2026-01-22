@@ -1,5 +1,14 @@
-[gd_scene format=3 uid="uid://biup1rqmtys3i"]
+[gd_scene load_steps=2 format=3 uid="uid://biup1rqmtys3i"]
 
-[node name="Node3D" type="Node3D"]
+[ext_resource type="Script" uid="uid://8d3m0rj3qrwq" path="res://scirpts/camera_control.gd" id="1_o5qli"]
 
-[node name="TerrainGenerator" type="TerrainGenerator" parent="."]
+[node name="main" type="Node3D"]
+
+[node name="terrainGenerator" type="TerrainGenerator" parent="."]
+
+[node name="camera" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6414292, 2.1446166)
+script = ExtResource("1_o5qli")
+
+[node name="directionalLight" type="DirectionalLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.77162457, 0.63607824, 0, -0.63607824, 0.77162457, 0, 0, 0)

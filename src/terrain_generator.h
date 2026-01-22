@@ -4,7 +4,7 @@
 #include "noise_generator.h"
 
 // Godot
-#include "godot_cpp/classes/node.hpp"
+#include "godot_cpp/classes/node3d.hpp"
 #include "godot_cpp/classes/mesh_instance3d.hpp"
 
 
@@ -48,9 +48,9 @@ struct ChunkCoordinatesHash
 };
 
 
-class TerrainGenerator : public Node
+class TerrainGenerator : public Node3D
 {
-	GDCLASS(TerrainGenerator, Node)
+	GDCLASS(TerrainGenerator, Node3D)
 
 protected:
 	static void _bind_methods();
