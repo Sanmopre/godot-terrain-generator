@@ -38,12 +38,16 @@ struct ChunkData
 	}
 };
 
-struct ChunkCoordinatesHash 
-{
+struct ChunkCoordinatesHash {
     std::size_t operator()(const ChunkData& c) const noexcept {
         std::size_t h1 = std::hash<i32>{}(c.x);
         std::size_t h2 = std::hash<i32>{}(c.z);
-        return h1 ^ (h2 << 1);
+        std::size_t h3 = std::hash<u8>{}(static_cast<u8>(c.lod));
+
+        std::size_t h = h1;
+        h ^= h2 + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2);
+        h ^= h3 + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2);
+        return h;
     }
 };
 
@@ -64,16 +68,35 @@ public:
 	void _ready() override;
 	void _process(double delta) override;
 
+public:
+	// Getters and setters
+	f64 get_tile_width() const noexcept;
+	void set_tile_width(f64 width) noexcept;
+
+	i32 get_chunk_size() const noexcept;
+	void set_chunk_size(i32 size) noexcept;
+
+	f64 get_tile_height() const noexcept;
+	void set_tile_height(f64 height) noexcept;
+
+    void set_player_node(const NodePath &path);
+    NodePath get_player_node() const;
+
 private:
-	[[nodiscard]] MeshInstance3D * generateChunkMesh(ChunkData &&chunkData) const noexcept;
+	[[nodiscard]] MeshInstance3D * generateChunkMesh(const ChunkData& chunkData) const noexcept;
 
 private:
 	// Noise generator
 	std::unique_ptr<NoiseGenerator> noiseGenerator_;
 
 private:
+    NodePath player_path_;
+    Node3D *player_ = nullptr; // cached (not owned)
+
+private:
 	// Tile information
 	f64 tileWidth_;
+	f64 tileHeight_;
 	u16 chunkSize_;
 
 private:

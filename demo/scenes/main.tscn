@@ -5,6 +5,9 @@
 [node name="main" type="Node3D"]
 
 [node name="terrainGenerator" type="TerrainGenerator" parent="."]
+tile_width = 4.0
+chunk_size = 16
+tile_height = 30.0
 
 [node name="camera" type="Camera3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6414292, 2.1446166)
