@@ -7,6 +7,10 @@
 #include "godot_cpp/variant/packed_int32_array.hpp"
 #include "godot_cpp/variant/array.hpp"
 
+// std
+#include <algorithm>
+#include <cmath>
+
 namespace godot 
 {
 
@@ -16,6 +20,10 @@ namespace
 constexpr f64 defaultTileWith = 1.0;
 constexpr u16 defaultChunkSize = 32;
 constexpr f64 defaultTileHeight = 10.0;
+
+[[nodiscard]] int chebyshevDist(int dx, int dz) {
+    return std::max(std::abs(dx), std::abs(dz));
+}
 
 } 
 
@@ -30,8 +38,92 @@ void TerrainGenerator::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_tile_height"), &TerrainGenerator::get_tile_height);
     ClassDB::bind_method(D_METHOD("set_tile_height", "height"), &TerrainGenerator::set_tile_height);
 
+    ClassDB::bind_method(D_METHOD("set_player_node", "path"), &TerrainGenerator::set_player_node);
+    ClassDB::bind_method(D_METHOD("get_player_node"), &TerrainGenerator::get_player_node);
+
+    ClassDB::bind_method(D_METHOD("set_terrain_material", "material"), &TerrainGenerator::set_terrain_material);
+    ClassDB::bind_method(D_METHOD("get_terrain_material"), &TerrainGenerator::get_terrain_material);
+
+    ClassDB::bind_method(D_METHOD("set_view_radius", "radius"), &TerrainGenerator::set_view_radius);
+    ClassDB::bind_method(D_METHOD("get_view_radius"), &TerrainGenerator::get_view_radius);
+
+    ClassDB::bind_method(D_METHOD("set_unload_radius", "radius"), &TerrainGenerator::set_unload_radius);
+    ClassDB::bind_method(D_METHOD("get_unload_radius"), &TerrainGenerator::get_unload_radius);
+
+    ClassDB::bind_method(D_METHOD("set_chunks_per_frame", "count"), &TerrainGenerator::set_chunks_per_frame);
+    ClassDB::bind_method(D_METHOD("get_chunks_per_frame"), &TerrainGenerator::get_chunks_per_frame);
+
+    ClassDB::bind_method(D_METHOD("set_lod_level_0_distance", "distance"), &TerrainGenerator::set_lod_level_0_distance);
+    ClassDB::bind_method(D_METHOD("get_lod_level_0_distance"), &TerrainGenerator::get_lod_level_0_distance);
+
+    ClassDB::bind_method(D_METHOD("set_lod_level_1_distance", "distance"), &TerrainGenerator::set_lod_level_1_distance);
+    ClassDB::bind_method(D_METHOD("get_lod_level_1_distance"), &TerrainGenerator::get_lod_level_1_distance);
+
+    ClassDB::bind_method(D_METHOD("set_lod_level_2_distance", "distance"), &TerrainGenerator::set_lod_level_2_distance);
+    ClassDB::bind_method(D_METHOD("get_lod_level_2_distance"), &TerrainGenerator::get_lod_level_2_distance);
+
+    ClassDB::bind_method(D_METHOD("set_water_level", "level"), &TerrainGenerator::set_water_level);
+    ClassDB::bind_method(D_METHOD("get_water_level"), &TerrainGenerator::get_water_level);
+
+
+    ADD_GROUP("Generation", "");
+
+    ADD_PROPERTY(
+        PropertyInfo(Variant::INT, "view_radius", PROPERTY_HINT_RANGE, "0,100,1"),
+        "set_view_radius",
+        "get_view_radius"
+    );
+
+    ADD_PROPERTY(
+        PropertyInfo(Variant::INT, "unload_radius", PROPERTY_HINT_RANGE, "0,100,1"),
+        "set_unload_radius",
+        "get_unload_radius"
+    );
+
+    ADD_PROPERTY(
+        PropertyInfo(Variant::INT, "chunks_per_frame", PROPERTY_HINT_RANGE, "0,100,1"),
+        "set_chunks_per_frame",
+        "get_chunks_per_frame"
+    );
+
+    ADD_SUBGROUP("LOD Distances", "");
+
+    ADD_PROPERTY(
+        PropertyInfo(Variant::INT, "lod_level_0_distance", PROPERTY_HINT_RANGE, "0,100,1"),
+        "set_lod_level_0_distance",
+        "get_lod_level_0_distance"
+    );
+
+    ADD_PROPERTY(
+        PropertyInfo(Variant::INT, "lod_level_1_distance", PROPERTY_HINT_RANGE, "0,100,1"),
+        "set_lod_level_1_distance",
+        "get_lod_level_1_distance"
+    );
+
+    ADD_PROPERTY(
+        PropertyInfo(Variant::INT, "lod_level_2_distance", PROPERTY_HINT_RANGE, "0,100,1"),
+        "set_lod_level_2_distance",
+        "get_lod_level_2_distance"
+    );
 
     ADD_GROUP("Terrain", "");
+
+    ADD_PROPERTY(
+    PropertyInfo(Variant::NODE_PATH, "player_node", PROPERTY_HINT_NODE_PATH_TO_EDITED_NODE, "Node3D"),
+    "set_player_node",
+    "get_player_node"
+    );
+
+    ADD_PROPERTY(
+    PropertyInfo(
+        Variant::OBJECT,
+        "terrain_material",
+        PROPERTY_HINT_RESOURCE_TYPE,
+        "Material"
+    ),
+    "set_terrain_material",
+    "get_terrain_material"
+    );
 
     ADD_PROPERTY(
         PropertyInfo(Variant::FLOAT, "tile_width", PROPERTY_HINT_RANGE, "0.0,1000.0,0.01,or_greater"),
@@ -49,6 +141,12 @@ void TerrainGenerator::_bind_methods() {
         PropertyInfo(Variant::FLOAT, "tile_height", PROPERTY_HINT_RANGE, "0.0,1000.0,0.01,or_greater"),
         "set_tile_height",
         "get_tile_height"
+    );
+
+    ADD_PROPERTY(
+        PropertyInfo(Variant::FLOAT, "water_level", PROPERTY_HINT_RANGE, "0.0,1.0,0.01"),
+        "set_water_level",
+        "get_water_level"
     );
 }
 
@@ -90,44 +188,133 @@ void TerrainGenerator::set_tile_height(f64 height) noexcept {
 void TerrainGenerator::set_player_node(const NodePath &path) 
 {
     player_path_ = path;
-    player_ = nullptr;
-
-    if (player_path_.is_empty()) {
-        return;
-    }
-
-    Node *n = get_node_or_null(player_path_);
-    if (!n) {
-        return;
-    }
-
-    player_ = Object::cast_to<Node3D>(n);
+    resolvePlayerNode();
 }
 
 NodePath TerrainGenerator::get_player_node() const {
     return player_path_;
 }
 
+void TerrainGenerator::set_terrain_material(const Ref<Material> &material) {
+    terrain_material_ = material;
+}
 
-void TerrainGenerator::_ready() {
-    ChunkData key{0, 0, TerrainLevelOfDetail::LEVEL_0};
-    MeshInstance3D *mi = generateChunkMesh(key);
-    chunks_.try_emplace(key, mi);
-    add_child(mi, false);
+Ref<Material> TerrainGenerator::get_terrain_material() const {
+    return terrain_material_;
+}
 
-    key = ChunkData{1, 0, TerrainLevelOfDetail::LEVEL_2};
-    MeshInstance3D *mi2 = generateChunkMesh(key);
-    chunks_.try_emplace(key, mi2);
-    add_child(mi2, false);
+void TerrainGenerator::set_view_radius(i32 radius) noexcept {
+    if (radius < 0) radius = 0;
+    viewRadius_ = radius;
+}
 
-    key = ChunkData{0, 1, TerrainLevelOfDetail::LEVEL_3};
-    MeshInstance3D *mi3 = generateChunkMesh(key);
-    chunks_.try_emplace(key, mi3);
-    add_child(mi3, false);
+i32 TerrainGenerator::get_view_radius() const noexcept {
+    return viewRadius_;
+}
+
+void TerrainGenerator::set_unload_radius(i32 radius) noexcept {
+    if (radius < 0) radius = 0;
+    unloadRadius_ = radius;
+}
+
+i32 TerrainGenerator::get_unload_radius() const noexcept {
+    return unloadRadius_;
+}
+
+void TerrainGenerator::set_chunks_per_frame(i32 count) noexcept {
+    if (count < 0) count = 0;
+    chunksPerFrame_ = count;
+}
+
+i32 TerrainGenerator::get_chunks_per_frame() const noexcept {
+    return chunksPerFrame_;
+}
+
+void TerrainGenerator::set_lod_level_0_distance(i32 distance) noexcept {
+    if (distance < 0) distance = 0;
+    lodLevel0Distance_ = distance;
+}
+
+i32 TerrainGenerator::get_lod_level_0_distance() const noexcept {
+    return lodLevel0Distance_;
+}
+
+void TerrainGenerator::set_lod_level_1_distance(i32 distance) noexcept {
+    if (distance < 0) distance = 0;
+    lodLevel1Distance_ = distance;
+}
+
+i32 TerrainGenerator::get_lod_level_1_distance() const noexcept {
+    return lodLevel1Distance_;
+}
+
+void TerrainGenerator::set_lod_level_2_distance(i32 distance) noexcept {
+    if (distance < 0) distance = 0;
+    lodLevel2Distance_ = distance;
+}
+
+i32 TerrainGenerator::get_lod_level_2_distance() const noexcept {
+    return lodLevel2Distance_;
+}
+
+void TerrainGenerator::set_water_level(f64 level) noexcept {
+    waterLevel_ = level;
+}
+
+f64 TerrainGenerator::get_water_level() const noexcept {
+    return waterLevel_;
+}
+
+void TerrainGenerator::_ready() 
+{
+    resolvePlayerNode();
+    if (!player_) 
+    {
+        UtilityFunctions::push_warning("TerrainGenerator: player_node is not set or not a Node3D.");
+        return;
+    }
+    
+    // Set initial center and enqueue chunks
+    currentChunkCenter_ = chunkFromWorld(player_->get_global_position());
+    has_center_ = true;
+    onCenterChunkChanged(currentChunkCenter_);
 }
 
 void TerrainGenerator::_process(double delta)
 {
+    if (!player_) return;
+
+    const ChunkCoord center = chunkFromWorld(player_->get_global_position());
+
+    if (!has_center_ || !(center == currentChunkCenter_)) 
+    {
+        has_center_ = true;
+        currentChunkCenter_ = center;
+        onCenterChunkChanged(currentChunkCenter_);
+    }
+
+    int budget = chunksPerFrame_;
+    while (budget-- > 0 && !chunkBuildQueue_.empty()) {
+        const BuildRequest req = chunkBuildQueue_.front();
+        chunkBuildQueue_.pop_front();
+
+        auto it = chunks_.find(req.coord);
+        if (it != chunks_.end() && it->second.lod == req.lod)
+            continue;
+
+        ChunkData cd{ req.coord.x, req.coord.z, req.lod };
+        MeshInstance3D* mi = generateChunkMesh(cd);
+        add_child(mi, false);
+
+        if (it == chunks_.end()) {
+            chunks_.emplace(req.coord, ChunkEntry{mi, req.lod});
+        } else {
+            it->second.node->queue_free();
+            it->second.node = mi;
+            it->second.lod = req.lod;
+        }
+    }
+
 }
 
 MeshInstance3D *TerrainGenerator::generateChunkMesh(const ChunkData& chunkData) const noexcept {
@@ -136,8 +323,15 @@ MeshInstance3D *TerrainGenerator::generateChunkMesh(const ChunkData& chunkData) 
     Ref<ArrayMesh> mesh;
     mesh.instantiate();
 
-    const int lod_i = static_cast<int>(chunkData.lod);
-    const int step = 1 << lod_i; // 1,2,4,8,...
+    int lod_i = static_cast<int>(chunkData.lod);
+    lod_i = std::clamp(lod_i, 0, 6);
+
+    // Ensure step <= chunkSize_
+    while ((1 << lod_i) > static_cast<int>(chunkSize_) && lod_i > 0) {
+        lod_i--;
+    }
+
+    const int step = 1 << lod_i;
     const int squares_per_side = static_cast<int>(chunkSize_) / step;
     const int verts_per_side = squares_per_side + 1;
 
@@ -176,8 +370,14 @@ MeshInstance3D *TerrainGenerator::generateChunkMesh(const ChunkData& chunkData) 
             const double world_x = chunk_world_x0 + static_cast<double>(vx) * static_cast<double>(quad_size);
             const double world_z = chunk_world_z0 + static_cast<double>(vz) * static_cast<double>(quad_size);
 
-            const double h = noiseGenerator_->getNoiseValue(world_x, world_z) * tileHeight_;
+            auto noiseValue = noiseGenerator_->getNoiseValue(world_x, world_z);
 
+            // Set to water level if below
+            if(noiseValue <= waterLevel_) {
+                noiseValue = waterLevel_;
+            }
+
+            const double h = noiseValue * tileHeight_;
             const float px = static_cast<float>(vx) * quad_size;
             const float py = static_cast<float>(h);
             const float pz = static_cast<float>(vz) * quad_size;
@@ -243,6 +443,10 @@ MeshInstance3D *TerrainGenerator::generateChunkMesh(const ChunkData& chunkData) 
     mesh->add_surface_from_arrays(Mesh::PRIMITIVE_TRIANGLES, arrays);
     meshInstance->set_mesh(mesh);
 
+    if (terrain_material_.is_valid()) {
+        meshInstance->set_material_override(terrain_material_);
+    }
+
     meshInstance->set_position(Vector3(
         static_cast<float>(chunk_world_x0),
         0.0f,
@@ -250,6 +454,79 @@ MeshInstance3D *TerrainGenerator::generateChunkMesh(const ChunkData& chunkData) 
     ));
 
     return meshInstance;
+}
+
+ChunkCoord TerrainGenerator::chunkFromWorld(const Vector3 &worldPosition) const noexcept
+{
+    const f64 s = (f64)chunkSize_ * tileWidth_;
+    return ChunkCoord{
+        (i32)std::floor(worldPosition.x / s),
+        (i32)std::floor(worldPosition.z / s)
+    };
+}
+
+void TerrainGenerator::onCenterChunkChanged(const ChunkCoord &center) {
+    // 1) enqueue chunks in view radius with appropriate LOD
+    for (int dz = -viewRadius_; dz <= viewRadius_; dz++) {
+        for (int dx = -viewRadius_; dx <= viewRadius_; dx++) {
+            ChunkCoord c{ center.x + dx, center.z + dz };
+
+            const int dist = chebyshevDist(dx, dz);
+            TerrainLevelOfDetail desired = lodForDistance(dist);
+
+            auto it = chunks_.find(c);
+
+            // Not loaded -> schedule build
+            if (it == chunks_.end()) {
+                chunkBuildQueue_.push_back(BuildRequest{c, desired});
+                continue;
+            }
+
+            // Loaded but wrong LOD -> schedule rebuild (replace mesh)
+            if (it->second.lod != desired) {
+                chunkBuildQueue_.push_back(BuildRequest{c, desired});
+            }
+        }
+    }
+
+    // 2) unload chunks outside unload radius (unchanged idea)
+    const int unload2 = unloadRadius_ * unloadRadius_;
+    for (auto it = chunks_.begin(); it != chunks_.end(); ) {
+        const int ddx = it->first.x - center.x;
+        const int ddz = it->first.z - center.z;
+        const int dist2 = ddx * ddx + ddz * ddz;
+
+        if (dist2 > unload2) {
+            if (it->second.node) it->second.node->queue_free();
+            it = chunks_.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
+
+TerrainLevelOfDetail TerrainGenerator::lodForDistance(int dist_chunks) const noexcept
+{
+    if (dist_chunks <= lodLevel0Distance_) return TerrainLevelOfDetail::LEVEL_0;
+    if (dist_chunks <= lodLevel1Distance_) return TerrainLevelOfDetail::LEVEL_1;
+    if (dist_chunks <= lodLevel2Distance_) return TerrainLevelOfDetail::LEVEL_2;
+    return TerrainLevelOfDetail::LEVEL_3;
+}
+
+void TerrainGenerator::resolvePlayerNode()
+{
+    player_ = nullptr;
+
+    if (player_path_.is_empty()) {
+        return;
+    }
+
+    Node *n = get_node_or_null(player_path_);
+    if (!n) {
+        return;
+    }
+
+    player_ = Object::cast_to<Node3D>(n);
 }
 
 }

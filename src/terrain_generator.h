@@ -6,11 +6,12 @@
 // Godot
 #include "godot_cpp/classes/node3d.hpp"
 #include "godot_cpp/classes/mesh_instance3d.hpp"
-
+#include "godot_cpp/classes/material.hpp"
 
 // std
 #include <memory>
 #include <unordered_map>
+#include <deque>
 
 namespace godot 
 {
@@ -20,33 +21,42 @@ enum class TerrainLevelOfDetail : u8
 	LEVEL_0 = 0,
 	LEVEL_1 = 1,
 	LEVEL_2 = 2,
-	LEVEL_3 = 3,
-	LEVEL_4 = 4,
-	LEVEL_5 = 5,
-	LEVEL_6 = 6
+	LEVEL_3 = 3
 };
+
+struct ChunkEntry {
+    MeshInstance3D *node = nullptr;
+    TerrainLevelOfDetail lod = TerrainLevelOfDetail::LEVEL_0;
+};
+
+struct ChunkCoord {
+    i32 x;
+    i32 z;
+
+    bool operator==(const ChunkCoord& o) const noexcept {
+        return x == o.x && z == o.z;
+    }
+};
+
+struct BuildRequest {
+    ChunkCoord coord;
+    TerrainLevelOfDetail lod;
+};
+
 
 struct ChunkData
 {
 	i32 x;
 	i32 z;
 	TerrainLevelOfDetail lod = TerrainLevelOfDetail::LEVEL_0;
-
-	bool operator==(const ChunkData &other) const
-	{
-		return x == other.x && z == other.z && lod == other.lod;
-	}
 };
 
-struct ChunkCoordinatesHash {
-    std::size_t operator()(const ChunkData& c) const noexcept {
-        std::size_t h1 = std::hash<i32>{}(c.x);
-        std::size_t h2 = std::hash<i32>{}(c.z);
-        std::size_t h3 = std::hash<u8>{}(static_cast<u8>(c.lod));
-
-        std::size_t h = h1;
+struct ChunkCoordHash {
+    size_t operator()(const ChunkCoord& c) const noexcept {
+        size_t h1 = std::hash<i32>{}(c.x);
+        size_t h2 = std::hash<i32>{}(c.z);
+        size_t h = h1;
         h ^= h2 + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2);
-        h ^= h3 + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2);
         return h;
     }
 };
@@ -82,14 +92,44 @@ public:
     void set_player_node(const NodePath &path);
     NodePath get_player_node() const;
 
+	void set_terrain_material(const Ref<Material> &material);
+	Ref<Material> get_terrain_material() const;
+
+	void set_view_radius(i32 radius) noexcept;
+	i32 get_view_radius() const noexcept;
+
+	void set_unload_radius(i32 radius) noexcept;
+	i32 get_unload_radius() const noexcept;
+
+	void set_chunks_per_frame(i32 count) noexcept;
+	i32 get_chunks_per_frame() const noexcept;
+
+	void set_lod_level_0_distance(i32 distance) noexcept;
+	i32 get_lod_level_0_distance() const noexcept;
+
+	void set_lod_level_1_distance(i32 distance) noexcept;
+	i32 get_lod_level_1_distance() const noexcept;
+
+	void set_lod_level_2_distance(i32 distance) noexcept;
+	i32 get_lod_level_2_distance() const noexcept;
+
+	void set_water_level(f64 level) noexcept;
+	f64 get_water_level() const noexcept;
+
 private:
 	[[nodiscard]] MeshInstance3D * generateChunkMesh(const ChunkData& chunkData) const noexcept;
+	[[nodiscard]] ChunkCoord chunkFromWorld(const Vector3& worldPosition) const noexcept;
+	void onCenterChunkChanged(const ChunkCoord& center);
+	[[nodiscard]] TerrainLevelOfDetail lodForDistance(int dist_chunks) const noexcept;
+	void enqueueNeededChunks(const ChunkCoord &center);
+	void resolvePlayerNode();
 
 private:
 	// Noise generator
 	std::unique_ptr<NoiseGenerator> noiseGenerator_;
 
 private:
+	Ref<Material> terrain_material_;
     NodePath player_path_;
     Node3D *player_ = nullptr; // cached (not owned)
 
@@ -98,10 +138,23 @@ private:
 	f64 tileWidth_;
 	f64 tileHeight_;
 	u16 chunkSize_;
+	f64 waterLevel_;
+
+private:
+	i32 viewRadius_ = 8;
+	i32 unloadRadius_ = 12;
+	i32 chunksPerFrame_ = 5;
+
+	i32 lodLevel0Distance_ = 2;
+	i32 lodLevel1Distance_ = 4;
+	i32 lodLevel2Distance_ = 7;
 
 private:
 	// Chunks
-	std::unordered_map<ChunkData, MeshInstance3D*, ChunkCoordinatesHash> chunks_;
+	std::unordered_map<ChunkCoord, ChunkEntry, ChunkCoordHash> chunks_;
+	std::deque<BuildRequest> chunkBuildQueue_;
+	ChunkCoord currentChunkCenter_;
+	bool has_center_ = false;
 };
 
 }
