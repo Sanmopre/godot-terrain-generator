@@ -6,6 +6,11 @@
 [node name="main" type="Node3D"]
 
 [node name="terrainGenerator" type="TerrainGenerator" parent="."]
+noise_frequency = 0.009999999999999998
+fractal_lacunarity = 1.0
+fractal_gain = 1.0
+domain_warp_enabled = true
+domain_warp_amplitude = 55.0
 view_radius = 14
 unload_radius = 19
 chunks_per_frame = 7
@@ -22,4 +27,4 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6414292, 2.1446166)
 script = ExtResource("1_o5qli")
 
 [node name="directionalLight" type="DirectionalLight3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 0.77162457, 0.63607824, 0, -0.63607824, 0.77162457, 0, 0, 0)
+transform = Transform3D(1, 0, 0, 0, -0.9747612, 0.22325005, 0, -0.22325005, -0.9747612, 0, 1.1356735, 0)

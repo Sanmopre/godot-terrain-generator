@@ -3,7 +3,6 @@
 NoiseGenerator::NoiseGenerator()
 {
     noiseGenerator_ = std::make_unique<FastNoiseLite>();
-    applySettings(NoiseSettings{});
 }
 
 void NoiseGenerator::applySettings(const NoiseSettings& settings) noexcept

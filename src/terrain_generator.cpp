@@ -27,8 +27,35 @@ constexpr f64 defaultTileHeight = 10.0;
 
 } 
 
-void TerrainGenerator::_bind_methods() {
-    // Bind methods using the SAME names you'll reference in ADD_PROPERTY
+void TerrainGenerator::_bind_methods()
+{
+    ClassDB::bind_method(D_METHOD("get_noise_seed"), &TerrainGenerator::get_noise_seed);
+    ClassDB::bind_method(D_METHOD("set_noise_seed", "v"), &TerrainGenerator::set_noise_seed);
+
+    ClassDB::bind_method(D_METHOD("get_noise_type"), &TerrainGenerator::get_noise_type);
+    ClassDB::bind_method(D_METHOD("set_noise_type", "v"), &TerrainGenerator::set_noise_type);
+
+    ClassDB::bind_method(D_METHOD("get_noise_frequency"), &TerrainGenerator::get_noise_frequency);
+    ClassDB::bind_method(D_METHOD("set_noise_frequency", "v"), &TerrainGenerator::set_noise_frequency);
+
+    ClassDB::bind_method(D_METHOD("get_fractal_type"), &TerrainGenerator::get_fractal_type);
+    ClassDB::bind_method(D_METHOD("set_fractal_type", "v"), &TerrainGenerator::set_fractal_type);
+
+    ClassDB::bind_method(D_METHOD("get_fractal_octaves"), &TerrainGenerator::get_fractal_octaves);
+    ClassDB::bind_method(D_METHOD("set_fractal_octaves", "v"), &TerrainGenerator::set_fractal_octaves);
+
+    ClassDB::bind_method(D_METHOD("get_fractal_lacunarity"), &TerrainGenerator::get_fractal_lacunarity);
+    ClassDB::bind_method(D_METHOD("set_fractal_lacunarity", "v"), &TerrainGenerator::set_fractal_lacunarity);
+
+    ClassDB::bind_method(D_METHOD("get_fractal_gain"), &TerrainGenerator::get_fractal_gain);
+    ClassDB::bind_method(D_METHOD("set_fractal_gain", "v"), &TerrainGenerator::set_fractal_gain);
+
+    ClassDB::bind_method(D_METHOD("get_domain_warp_enabled"), &TerrainGenerator::get_domain_warp_enabled);
+    ClassDB::bind_method(D_METHOD("set_domain_warp_enabled", "v"), &TerrainGenerator::set_domain_warp_enabled);
+
+    ClassDB::bind_method(D_METHOD("get_domain_warp_amplitude"), &TerrainGenerator::get_domain_warp_amplitude);
+    ClassDB::bind_method(D_METHOD("set_domain_warp_amplitude", "v"), &TerrainGenerator::set_domain_warp_amplitude);
+
     ClassDB::bind_method(D_METHOD("get_tile_width"), &TerrainGenerator::get_tile_width);
     ClassDB::bind_method(D_METHOD("set_tile_width", "width"), &TerrainGenerator::set_tile_width);
 
@@ -65,6 +92,49 @@ void TerrainGenerator::_bind_methods() {
     ClassDB::bind_method(D_METHOD("set_water_level", "level"), &TerrainGenerator::set_water_level);
     ClassDB::bind_method(D_METHOD("get_water_level"), &TerrainGenerator::get_water_level);
 
+
+    ADD_GROUP("Noise", "");
+
+    ADD_PROPERTY(PropertyInfo(Variant::INT, "noise_seed"), "set_noise_seed", "get_noise_seed");
+
+    ADD_PROPERTY(PropertyInfo(
+        Variant::INT, "noise_type", PROPERTY_HINT_ENUM,
+        "OpenSimplex2,Perlin,Cellular"
+    ), "set_noise_type", "get_noise_type");
+
+    ADD_PROPERTY(PropertyInfo(
+        Variant::FLOAT, "noise_frequency", PROPERTY_HINT_RANGE,
+        "0.0001,1.0,0.0001"
+    ), "set_noise_frequency", "get_noise_frequency");
+
+    ADD_PROPERTY(PropertyInfo(
+        Variant::INT, "fractal_type", PROPERTY_HINT_ENUM,
+        "FBm,Ridged,PingPong"
+    ), "set_fractal_type", "get_fractal_type");
+
+    ADD_PROPERTY(PropertyInfo(
+        Variant::INT, "fractal_octaves", PROPERTY_HINT_RANGE,
+        "1,10,1"
+    ), "set_fractal_octaves", "get_fractal_octaves");
+
+    ADD_PROPERTY(PropertyInfo(
+        Variant::FLOAT, "fractal_lacunarity", PROPERTY_HINT_RANGE,
+        "1.0,4.0,0.01"
+    ), "set_fractal_lacunarity", "get_fractal_lacunarity");
+
+    ADD_PROPERTY(PropertyInfo(
+        Variant::FLOAT, "fractal_gain", PROPERTY_HINT_RANGE,
+        "0.0,1.0,0.01"
+    ), "set_fractal_gain", "get_fractal_gain");
+
+    ADD_PROPERTY(PropertyInfo(
+        Variant::BOOL, "domain_warp_enabled"
+    ), "set_domain_warp_enabled", "get_domain_warp_enabled");
+
+    ADD_PROPERTY(PropertyInfo(
+        Variant::FLOAT, "domain_warp_amplitude", PROPERTY_HINT_RANGE,
+        "0.0,200.0,0.1"
+    ), "set_domain_warp_amplitude", "get_domain_warp_amplitude");
 
     ADD_GROUP("Generation", "");
 
@@ -265,8 +335,102 @@ f64 TerrainGenerator::get_water_level() const noexcept {
     return waterLevel_;
 }
 
+i32 TerrainGenerator::get_noise_seed() const {
+    return noiseSettings_.seed;
+}
+
+void TerrainGenerator::set_noise_seed(i32 v) {
+    noiseSettings_.seed = v;
+}
+
+i32 TerrainGenerator::get_noise_type() const {
+       switch (noiseSettings_.noise_type) {
+        case FastNoiseLite::NoiseType_Perlin:
+            return NOISE_PERLIN;
+        case FastNoiseLite::NoiseType_Cellular:
+            return NOISE_CELLULAR;
+        default:
+            return NOISE_OPENSIMPLEX2;
+    }
+}
+
+void TerrainGenerator::set_noise_type(i32 v) {
+    switch (v) {
+        case NOISE_PERLIN:
+            noiseSettings_.noise_type = FastNoiseLite::NoiseType_Perlin;
+            break;
+        case NOISE_CELLULAR:
+            noiseSettings_.noise_type = FastNoiseLite::NoiseType_Cellular;
+            break;
+        default:
+            noiseSettings_.noise_type = FastNoiseLite::NoiseType_OpenSimplex2;
+            break;
+    }
+}
+
+void TerrainGenerator::set_noise_frequency(f64 v) {
+    noiseSettings_.frequency = v;
+}
+
+f64 TerrainGenerator::get_noise_frequency() const {
+    return noiseSettings_.frequency;
+}
+
+i32 TerrainGenerator::get_fractal_type() const {
+    return static_cast<i32>(noiseSettings_.fractal_type);
+}
+
+void TerrainGenerator::set_fractal_type(i32 v) {
+    noiseSettings_.fractal_type = static_cast<FastNoiseLite::FractalType>(v);
+}
+
+i32 TerrainGenerator::get_fractal_octaves() const {
+    return noiseSettings_.octaves;
+}
+
+void TerrainGenerator::set_fractal_octaves(i32 v) {
+    noiseSettings_.octaves = v;
+}
+
+f64 TerrainGenerator::get_fractal_lacunarity() const {
+    return noiseSettings_.lacunarity;
+}
+
+void TerrainGenerator::set_fractal_lacunarity(f64 v) {
+    noiseSettings_.lacunarity = v;
+}
+
+f64 TerrainGenerator::get_fractal_gain() const {
+    return noiseSettings_.gain;
+}
+
+void TerrainGenerator::set_fractal_gain(f64 v) {
+    noiseSettings_.gain = v;
+}
+
+bool TerrainGenerator::get_domain_warp_enabled() const {
+    return noiseSettings_.domain_warp_enabled;
+}
+
+void TerrainGenerator::set_domain_warp_enabled(bool v) {
+    noiseSettings_.domain_warp_enabled = v;
+}
+
+f64 TerrainGenerator::get_domain_warp_amplitude() const {
+    return noiseSettings_.domain_warp_amp;
+}
+
+void TerrainGenerator::set_domain_warp_amplitude(f64 v) {
+    noiseSettings_.domain_warp_amp = v;
+}
+
+
+
+
 void TerrainGenerator::_ready() 
 {
+    noiseGenerator_->applySettings(noiseSettings_);
+
     resolvePlayerNode();
     if (!player_) 
     {

@@ -8,6 +8,18 @@
 // std
 #include <memory>
 
+enum NoiseType {
+    NOISE_OPENSIMPLEX2 = 0,
+    NOISE_PERLIN = 1,
+    NOISE_CELLULAR = 2
+};
+
+enum FractalType {
+    FRACTAL_FBM = 0,
+    FRACTAL_RIDGED = 1,
+    FRACTAL_PINGPONG = 2
+};
+
 struct NoiseSettings
 {
     // Core

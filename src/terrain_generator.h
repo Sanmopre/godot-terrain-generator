@@ -116,6 +116,33 @@ public:
 	void set_water_level(f64 level) noexcept;
 	f64 get_water_level() const noexcept;
 
+	i32 get_noise_seed() const;
+	void set_noise_seed(i32 v);
+
+	i32 get_noise_type() const;
+	void set_noise_type(i32 v);
+
+	f64 get_noise_frequency() const;
+	void set_noise_frequency(f64 v);
+
+	i32 get_fractal_type() const;
+	void set_fractal_type(i32 v);
+
+	i32 get_fractal_octaves() const;
+	void set_fractal_octaves(i32 v);
+
+	f64 get_fractal_lacunarity() const;
+	void set_fractal_lacunarity(f64 v);
+
+	f64 get_fractal_gain() const;
+	void set_fractal_gain(f64 v);
+
+	bool get_domain_warp_enabled() const;
+	void set_domain_warp_enabled(bool v);
+
+	f64 get_domain_warp_amplitude() const;
+	void set_domain_warp_amplitude(f64 v);
+
 private:
 	[[nodiscard]] MeshInstance3D * generateChunkMesh(const ChunkData& chunkData) const noexcept;
 	[[nodiscard]] ChunkCoord chunkFromWorld(const Vector3& worldPosition) const noexcept;
@@ -127,6 +154,7 @@ private:
 private:
 	// Noise generator
 	std::unique_ptr<NoiseGenerator> noiseGenerator_;
+	NoiseSettings noiseSettings_;
 
 private:
 	Ref<Material> terrain_material_;
